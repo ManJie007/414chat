@@ -19,8 +19,8 @@ public:
 	};
 
 public:
-	CDatabaseMysql(void);
-	~CDatabaseMysql(void);
+	CDatabaseMysql();
+	~CDatabaseMysql();
 
 	bool initialize(const std::string& host, const std::string& user, const std::string& pwd, const std::string& dbname);
 	QueryResult* query(const char *sql);

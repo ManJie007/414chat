@@ -5,14 +5,14 @@
 
 // #include "../base/AsyncLog.h"
 
-CDatabaseMysql::CDatabaseMysql(void)
+CDatabaseMysql::CDatabaseMysql()
 {
-    //m_Mysql = new MYSQL;
+    // m_Mysql = new MYSQL;
     m_Mysql = NULL;
     m_bInit = false;
 }
 
-CDatabaseMysql::~CDatabaseMysql(void)
+CDatabaseMysql::~CDatabaseMysql()
 {
     if (m_Mysql != NULL)
     {
@@ -21,16 +21,15 @@ CDatabaseMysql::~CDatabaseMysql(void)
             mysql_close(m_Mysql);
         }
 
-        //delete m_Mysql;
+        // delete m_Mysql;
     }
 }
 
-
-bool CDatabaseMysql::initialize(const std::string& host, const std::string& user, const std::string& pwd, const std::string& dbname)
+bool CDatabaseMysql::initialize(const std::string &host, const std::string &user, const std::string &pwd, const std::string &dbname)
 {
-    //LOGI << "CDatabaseMysql::Initialize, begin...";
+    // LOGI << "CDatabaseMysql::Initialize, begin...";
 
-    //ClearStoredResults();
+    // ClearStoredResults();
     if (m_bInit)
     {
         mysql_close(m_Mysql);
@@ -39,9 +38,9 @@ bool CDatabaseMysql::initialize(const std::string& host, const std::string& user
     m_Mysql = mysql_init(m_Mysql);
     m_Mysql = mysql_real_connect(m_Mysql, host.c_str(), user.c_str(), pwd.c_str(), dbname.c_str(), 0, NULL, 0);
 
-    //ClearStoredResults();
+    // ClearStoredResults();
 
-    //LOGI << "mysql info: host=" << host << ", user=" << user << ", password=" << pwd << ", dbname=" << dbname;
+    // LOGI << "mysql info: host=" << host << ", user=" << user << ", password=" << pwd << ", dbname=" << dbname;
 
     m_DBInfo.strDBName = dbname;
     m_DBInfo.strHost = host;
@@ -50,97 +49,100 @@ bool CDatabaseMysql::initialize(const std::string& host, const std::string& user
 
     if (m_Mysql)
     {
-        //LOGI << "m_Mysql address " << (long)m_Mysql;
-        //LOGI << "CDatabaseMysql::Initialize, set names utf8";
+        // LOGI << "m_Mysql address " << (long)m_Mysql;
+        // LOGI << "CDatabaseMysql::Initialize, set names utf8";
         mysql_query(m_Mysql, "set names utf8");
-        //mysql_query(m_Mysql, "set names latin1");
+        // mysql_query(m_Mysql, "set names latin1");
         m_bInit = true;
         return true;
     }
     else
     {
-        //LOGE << "Could not connect to MySQL database at " << host.c_str()
-        //    << ", " << mysql_error(m_Mysql);
+        // LOGE << "Could not connect to MySQL database at " << host.c_str()
+        //     << ", " << mysql_error(m_Mysql);
         mysql_close(m_Mysql);
         return false;
     }
 
-    //LOGI << "CDatabaseMysql::Initialize, init failed!";
+    // LOGI << "CDatabaseMysql::Initialize, init failed!";
     return false;
 }
 
-//TODO: 这个函数要区分一下空数据集和出错两种情况
-QueryResult* CDatabaseMysql::query(const char* sql)
+//这个函数要区分一下空数据集和出错两种情况
+QueryResult *CDatabaseMysql::query(const char *sql)
 {
     if (!m_Mysql)
     {
-        //LOGI << "CDatabaseMysql::Query, mysql is disconnected!";
+        // LOGI << "CDatabaseMysql::Query, mysql is disconnected!";
         if (false == initialize(m_DBInfo.strHost, m_DBInfo.strUser,
-            m_DBInfo.strPwd, m_DBInfo.strDBName))
+                                m_DBInfo.strPwd, m_DBInfo.strDBName))
         {
-            return NULL;
+            return nullptr;
         }
     }
 
     if (!m_Mysql)
         return 0;
 
-    MYSQL_RES* result = 0;
-    uint32_t rowCount = 0;
-    uint32_t fieldCount = 0;
+    MYSQL_RES *result = 0;
+    size_t fieldCount = 0;
 
     {
-        //LOGI << sql;
+        // LOGI << sql;
         int iTempRet = mysql_real_query(m_Mysql, sql, strlen(sql));
         if (iTempRet)
         {
             unsigned int uErrno = mysql_errno(m_Mysql);
-            //LOGI << "CDatabaseMysql::Query, mysql is abnormal, errno : " << uErrno;
+            // LOGI << "CDatabaseMysql::Query, mysql is abnormal, errno : " << uErrno;
             if (CR_SERVER_GONE_ERROR == uErrno)
             {
-                //LOGI << "CDatabaseMysql::Query, mysql is disconnected!";
+                // LOGI << "CDatabaseMysql::Query, mysql is disconnected!";
                 if (false == initialize(m_DBInfo.strHost, m_DBInfo.strUser,
-                    m_DBInfo.strPwd, m_DBInfo.strDBName))
+                                        m_DBInfo.strPwd, m_DBInfo.strDBName))
                 {
-                    return NULL;
+                    return nullptr;
                 }
-                //LOGI << sql;
+                // LOGI << sql;
                 iTempRet = mysql_real_query(m_Mysql, sql, strlen(sql));
                 if (iTempRet)
                 {
-                    //LOGE << "SQL: " << sql ;
-                    //LOGE << "query ERROR: " << mysql_error(m_Mysql);
+                    // LOGE << "SQL: " << sql ;
+                    // LOGE << "query ERROR: " << mysql_error(m_Mysql);
                 }
             }
             else
             {
-                //LOGE << "SQL: " << sql ;
-                //LOGE << "query ERROR: " << mysql_error(m_Mysql);
-                return NULL;
+                // LOGE << "SQL: " << sql ;
+                // LOGE << "query ERROR: " << mysql_error(m_Mysql);
+                return nullptr;
             }
         }
 
-        //LOGI << "call mysql_store_result";
+        // LOGI << "call mysql_store_result";
         result = mysql_store_result(m_Mysql);
-
-        rowCount = mysql_affected_rows(m_Mysql);
+        if (!result)
+            return nullptr;
         fieldCount = mysql_field_count(m_Mysql);
+        if (fieldCount == 0)
+        {
+            //执行的不是select语句
+            mysql_free_result(result);
+            return nullptr;
+        }
+        
         // end guarded block
     }
 
-    if (!result)
-        return NULL;
-
     //  if (!rowCount)
     //  {
-          //LOGI << "call mysql_free_result";
+    // LOGI << "call mysql_free_result";
     //      mysql_free_result(result);
     //      return NULL;
     //  }
 
-    QueryResult* queryResult = new QueryResult(result, rowCount, fieldCount);
+    QueryResult *queryResult = new QueryResult(result);
 
-    queryResult->nextRow();
+    // queryResult->nextRow();
 
     return queryResult;
 }
